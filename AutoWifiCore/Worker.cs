@@ -40,8 +40,8 @@ namespace AutoWifiCore
                     logger.LogWarning("No WiFi connection detected - Please connect to WiFi network first");
                 }
 
-                // Check every minute
-                await Task.Delay(60000, stoppingToken);
+                // Check every ten seconds
+                await Task.Delay(10000, stoppingToken);
             }
         }
 
@@ -280,11 +280,7 @@ namespace AutoWifiCore
                 }
 
                 logger.LogInformation("Waiting for portal to finalize session...");
-                await Task.Delay(5000);
-
-                // Try accessing a web page
-                driver.Navigate().GoToUrl("http://www.google.com");
-                await Task.Delay(5000);
+                await Task.Delay(7000);
             }
             catch (Exception ex)
             {
