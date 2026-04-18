@@ -40,8 +40,8 @@ namespace AutoWifiCore
                     logger.LogWarning("No WiFi connection detected - Please connect to WiFi network first");
                 }
 
-                // Check every ten seconds
-                await Task.Delay(10000, stoppingToken);
+                // Check every five seconds
+                await Task.Delay(5000, stoppingToken);
             }
         }
 
@@ -119,7 +119,8 @@ namespace AutoWifiCore
                     if (networkInterface.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 &&
                         networkInterface.OperationalStatus == OperationalStatus.Up)
                     {
-                        logger.LogInformation($"WiFi connected: {networkInterface.Description}");
+                        if (!_connectionGoodLogged) 
+                            logger.LogInformation($"WiFi connected: {networkInterface.Description}");
                         return true;
                     }
                 }
@@ -212,75 +213,53 @@ namespace AutoWifiCore
 
                 await Task.Delay(7000);
 
-                // Method 1: Try to find the form and submit it directly (more reliable than clicking)
+                IWebElement? connectButton = null;
                 try
                 {
-                    var loginForm = driver.FindElement(By.Id("frmLogin"));
-                    logger.LogInformation("Found login form, submitting directly...");
-
-                    // Get form values for logging
-                    var username = loginForm.FindElement(By.Name("username")).GetAttribute("value");
-                    var password = loginForm.FindElement(By.Name("password")).GetAttribute("value");
-                    logger.LogInformation($"Form values - Username: {username}, Password: {password}");
-
-                    // Submit the form using JavaScript
-                    ((IJavaScriptExecutor)driver).ExecuteScript("document.getElementById('frmLogin').submit();");
-                    logger.LogInformation("Form submitted successfully!");
+                    connectButton = driver.FindElement(By.Id("connectToInternet"));
                 }
-                catch (Exception formEx)
+                catch
                 {
-                    logger.LogWarning($"Form submit failed: {formEx.Message}, trying button click...");
+                    connectButton = driver.FindElement(By.XPath("//*[contains(text(), 'Kết nối')] | //*[contains(text(), 'Connect')]"));
+                }
 
-                    // Method 2: Fallback to button click
-                    IWebElement? connectButton = null;
-                    try
+                if (connectButton != null)
+                {
+                    ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", connectButton);
+
+                    // Wait for button to be enabled (disabled class removed after 6s countdown)
+                    logger.LogInformation("Waiting for button to be enabled...");
+                    WebDriverWait buttonWait = new WebDriverWait(driver, TimeSpan.FromSeconds(8));
+                    buttonWait.Until(d =>
                     {
-                        connectButton = driver.FindElement(By.Id("connectToInternet"));
-                    }
-                    catch
-                    {
-                        connectButton = driver.FindElement(By.XPath("//*[contains(text(), 'Kết nối')] | //*[contains(text(), 'Connect')]"));
-                    }
-
-                    if (connectButton != null)
-                    {
-                        ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", connectButton);
-                        await Task.Delay(1000);
-
-                        // Wait for button to be enabled (disabled class removed after 6s countdown)
-                        logger.LogInformation("Waiting for button to be enabled...");
-                        WebDriverWait buttonWait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-                        buttonWait.Until(d =>
-                        {
-                            try
-                            {
-                                var btn = d.FindElement(By.Id("connectToInternet"));
-                                var classList = btn.GetAttribute("class") ?? "";
-                                return !classList.Contains("disabled");
-                            }
-                            catch
-                            {
-                                return false;
-                            }
-                        });
-
-                        logger.LogInformation("Button is now enabled, trying to call underlying function...");
-
-                        // Try to call the underlying function directly
                         try
                         {
-                            ((IJavaScriptExecutor)driver).ExecuteScript("if (typeof slideBannerFunctions !== 'undefined' && typeof slideBannerFunctions.connectToWifi === 'function') slideBannerFunctions.connectToWifi();");
-                            logger.LogInformation("Direct function call succeeded!");
+                            var btn = d.FindElement(By.Id("connectToInternet"));
+                            var classList = btn.GetAttribute("class") ?? "";
+                            return !classList.Contains("disabled");
                         }
-                        catch (Exception funcEx)
+                        catch
                         {
-                            logger.LogError($"Function call failed: {funcEx.Message}");
+                            return false;
                         }
+                    });
+
+                    logger.LogInformation("Button is now enabled, trying to call underlying function...");
+
+                    // Try to call the underlying function directly
+                    try
+                    {
+                        ((IJavaScriptExecutor)driver).ExecuteScript("if (typeof slideBannerFunctions !== 'undefined' && typeof slideBannerFunctions.connectToWifi === 'function') slideBannerFunctions.connectToWifi();");
+                        logger.LogInformation("Direct function call succeeded!");
+                    }
+                    catch (Exception funcEx)
+                    {
+                        logger.LogError($"Function call failed: {funcEx.Message}");
                     }
                 }
 
                 logger.LogInformation("Waiting for portal to finalize session...");
-                await Task.Delay(7000);
+                await Task.Delay(2000);
             }
             catch (Exception ex)
             {
