@@ -47,7 +47,13 @@ namespace AutoWifiCore
 
         private string? FindEdgeDriverPath()
         {
-            // First check current directory (build output contains msedgedriver.exe)
+            var appDirectory = AppContext.BaseDirectory;
+            if (File.Exists(Path.Combine(appDirectory, "msedgedriver.exe")))
+            {
+                return appDirectory;
+            }
+
+            // Check current directory (build output contains msedgedriver.exe)
             var currentDirDriver = Path.Combine(Directory.GetCurrentDirectory(), "msedgedriver.exe");
             if (File.Exists(currentDirDriver))
             {
